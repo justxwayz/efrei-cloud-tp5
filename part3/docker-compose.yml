@@ -1,0 +1,47 @@
+services:
+  redis:
+    image: redis:7
+    container_name: ws_redis
+
+  back1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ws_back1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/src:/app/src
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+
+  back2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ws_back2
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./backend/src:/app/src
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+
+  front:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ws_front
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./frontend/src:/app/src
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      - back1
+      - back2
