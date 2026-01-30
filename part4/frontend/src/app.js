@@ -5,99 +5,159 @@ const PORT = process.env.FRONT_PORT || 8000;
 
 const html = `
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
 <meta charset="utf-8" />
-<title>Soupa Chat - Traefik Edition</title>
-
+<title>Chatty Rooms</title>
+<link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
 <style>
-body { font-family: sans-serif; max-width: 600px; margin: 20px auto; }
-#chat { border: 1px solid #ccc; height: 250px; overflow-y: auto; padding: 5px; }
-button, input { width: 100%; margin-top: 5px; }
-.rooms { display: flex; gap: 5px; }
+/* ---------------- Base ---------------- */
+html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
+body { min-height: 100vh; transition: background-color 0.3s, color 0.3s; display: flex; flex-direction: column; }
+
+/* ---------------- Dark / Light Mode ---------------- */
+html.light {
+    --bg-page: #ffffff;
+    --bg-header: #f0f0f0;
+    --bg-main: #fafafa;
+    --color-text: #000000;
+    --border-color: #ccc;
+}
+html.dark {
+    --bg-page: #0d1b2a;
+    --bg-header: #112240;
+    --bg-main: #1a2a4b;
+    --color-text: #ffffff;
+    --border-color: #2a3a5b;
+}
+
+/* ---------------- Header ---------------- */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-header);
+    border-bottom: 1px solid var(--border-color);
+}
+header h2 { margin: 0; text-align: center; flex: 1; font-weight: 600; color: var(--color-text); }
+.theme-toggle button { font-size: 1.5rem; border: none; background: none; cursor: pointer; }
+.user-count {
+    background-color: var(--bg-main);
+    color: var(--color-text);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+}
+
+/* ---------------- Main ---------------- */
+main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 1rem; background-color: var(--bg-main); }
+
+/* ---------------- Chat ---------------- */
+#chat { border: 1px solid var(--border-color); width: 90%; max-width: 600px; height: 300px; overflow-y: auto; padding: 0.5rem; margin-bottom: 0.5rem; background-color: var(--bg-page); color: var(--color-text); border-radius: 0.5rem; }
+
+/* ---------------- Message Input ---------------- */
+#msg { width: 90%; max-width: 600px; margin-bottom: 0.5rem; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 0.5rem; }
+
+/* ---------------- Rooms ---------------- */
+.room-selector { margin-bottom: 1rem; width: 90%; max-width: 600px; }
+.room-selector select { width: 100%; border-radius: 0.5rem; padding: 0.25rem; border: 1px solid var(--border-color); background-color: var(--bg-page); color: var(--color-text); }
+
+/* ---------------- Button ---------------- */
+button { border-radius: 0.5rem; }
 </style>
 </head>
 
-<body>
+<body class="dark">
+<header>
+    <div class="theme-toggle">
+        <button id="toggle-theme">🌞</button>
+    </div>
+    <h2>Chatty Rooms</h2>
+    <div class="user-count">Users connected: <span id="userCount">0</span></div>
+</header>
 
-<h3>Soupa Rooms Chat</h3>
+<main>
+    <div class="room-selector">
+        <label for="roomSelect">Choose a room:</label>
+        <select id="roomSelect">
+            <option value="room1">Room 1</option>
+            <option value="room2">Room 2</option>
+            <option value="room3">Room 3</option>
+        </select>
+    </div>
 
-<div class="rooms">
-  <button onclick="join('room1')">Room 1</button>
-  <button onclick="join('room2')">Room 2</button>
-  <button onclick="join('room3')">Room 3</button>
-</div>
-
-<p>Room actuelle : <b id="roomLabel">aucune</b></p>
-
-<div id="chat"></div>
-<input id="msg" placeholder="Type a message..." />
-<button onclick="send()">Send</button>
-
-<p>Users connected: <span id="userCount">0</span></p>
+    <div id="chat"></div>
+    <input id="msg" placeholder="Type a message..." />
+    <button onclick="send()">Send</button>
+</main>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
 <script>
-const socket = io({
-    path: "/socket/",
-    transports: ["websocket"]
-});
+const socket = io({ path: "/socket/", transports: ["websocket"] });
 
 const chat = document.getElementById("chat");
 const input = document.getElementById("msg");
-const roomLabel = document.getElementById("roomLabel");
 const userCountElem = document.getElementById("userCount");
+const roomSelect = document.getElementById("roomSelect");
+const htmlEl = document.documentElement;
+const toggleBtn = document.getElementById("toggle-theme");
 
-let currentRoom = null;
+let currentRoom = roomSelect.value;
 
-function addLine(msg) {
+// ---------------- Dark/Light Toggle ----------------
+if(localStorage.getItem('dark-mode')==='false'){
+    htmlEl.classList.remove('dark'); htmlEl.classList.add('light'); toggleBtn.textContent='🌙';
+} else { htmlEl.classList.add('dark'); toggleBtn.textContent='🌞'; }
+
+toggleBtn.addEventListener('click', () => {
+    htmlEl.classList.toggle('dark');
+    htmlEl.classList.toggle('light');
+    toggleBtn.textContent = htmlEl.classList.contains('dark') ? '🌞' : '🌙';
+    localStorage.setItem('dark-mode', htmlEl.classList.contains('dark'));
+});
+
+// ---------------- Rooms ----------------
+roomSelect.addEventListener('change', () => {
+    currentRoom = roomSelect.value;
+    socket.emit("join_room", currentRoom);
+});
+
+// ---------------- Messages ----------------
+function addLine(msg){
     const line = document.createElement("div");
     line.textContent = msg;
     chat.appendChild(line);
     chat.scrollTop = chat.scrollHeight;
 }
 
-// --- Historique ---
 socket.on("history", (data) => {
-    if (data.room !== currentRoom) return;
+    if(data.room !== currentRoom) return;
     chat.innerHTML = "";
     data.messages.forEach(addLine);
 });
 
-// --- Messages en live ---
 socket.on("message", (data) => {
-    if (data.room !== currentRoom) return;
+    if(data.room !== currentRoom) return;
     addLine(data.msg);
 });
 
-// --- Compteur d'utilisateurs ---
-socket.on("user_count", (count) => {
-    userCountElem.textContent = count;
-});
+// ---------------- User Count ----------------
+socket.on("user_count", count => { userCountElem.textContent = count; });
 
-// --- Joindre une room ---
-function join(room) {
-    currentRoom = room;
-    roomLabel.textContent = room;
-    socket.emit("join_room", room);
-}
-
-// --- Envoyer un message ---
-function send() {
-    if (!currentRoom) return;
-    if (input.value.trim() === "") return;
-
+// ---------------- Send Message ----------------
+function send(){
+    if(!currentRoom || input.value.trim()==='') return;
     socket.emit("message", input.value);
     input.value = "";
 }
 
-// --- Envoi avec Enter ---
-input.addEventListener("keypress", e => {
-    if (e.key === "Enter") send();
-});
-</script>
+input.addEventListener("keypress", e => { if(e.key==="Enter") send(); });
 
+// ---------------- Initial Room Join ----------------
+socket.emit("join_room", currentRoom);
+</script>
 </body>
 </html>
 `;
