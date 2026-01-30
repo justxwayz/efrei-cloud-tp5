@@ -1,0 +1,67 @@
+services:
+  redis:
+    image: redis:7
+    container_name: ws_redis
+
+  back1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ws_back1
+    volumes:
+      - ./backend/src:/app/src
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/socket`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+
+  back2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ws_back2
+    volumes:
+      - ./backend/src:/app/src
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend2.rule=PathPrefix(`/socket`)"
+      - "traefik.http.services.backend2.loadbalancer.server.port=3000"
+
+  front:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ws_front
+    volumes:
+      - ./frontend/src:/app/src
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      - back1
+      - back2
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8000"
+
+  traefik:
+    image: traefik:v3.6.7
+    container_name: ws_traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
