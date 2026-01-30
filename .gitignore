@@ -1,0 +1,21 @@
+# Node.js dependencies
+**/node_modules
+**/package-lock.json
+
+# Logs
+**/logs
+*.log
+
+# Environment variables
+**/.env
+
+# Docker
+**/docker-compose.override.yml
+**/tmp
+**/dist
+
+# IDE / OS files
+.DS_Store
+*.swp
+.idea/
+.vscode/
